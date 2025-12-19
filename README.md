@@ -1,22 +1,83 @@
-# BERT Embedding + Classification Model Харьцуулалт
+# BERT Embedding + Classification Тайлан
 
-## 🎯 Зорилго
-BERT-ийн хувилбаруудаар (BERT-base, BERT-large, DistilBERT, RoBERTa, ALBERT) текстийг вектор болгож, ангилах загваруудтай (Logistic Regression, AdaBoost, Random Forest, LSTM) хослуулан IMDB мэдрэмжийн ангиллын үр дүнг харьцуулах.
+## 1. Төслийн зорилго
+IMDB кино шүүмжийн эерэг/сөрөг ангиллыг BERT-ийн олон хувилбарын embedding-ээр төлөөлж, дөрвөн ангилагч (Logistic Regression, AdaBoost, Random Forest, LSTM) дээр 20-run RepeatedStratifiedKFold (5 folds × 4 repeats) үнэлгээгээр харьцуулах.
 
-## 📊 Датасет
-- IMDB 50K (Train 40k / Test 10k)  
-- Эерэг / Сөрөг кино шүүмж
+## 2. Датасет
+- IMDB 50K (CSV), 25k эерэг / 25k сөрөг
+- Train/Test: 40k / 10k (80/20), stratified split
+- Embedding файлууд: `{model}_train_embeddings.npy`, `{model}_train_labels.npy`, `{model}_test_embeddings.npy`, `{model}_test_labels.npy`
 
-## 🔧 Технологи
-- Embedding: HuggingFace Transformers (fine-tune хийхгүй)
-- ML: scikit-learn (LR, AdaBoost, RF)
-- DL: TensorFlow/Keras (LSTM)
-- Evaluation: RepeatedStratifiedKFold (5 folds × 4 repeats = 20 runs)
-- Metrics: Accuracy, Precision, Recall, F1, ROC-AUC
+## 3. Embedding аргууд (fine-tune хийхгүй)
+- **BERT-base-uncased** (768 dim, ~110M)
+- **BERT-large-uncased** (1024 dim, ~340M)
+- **DistilBERT** (768 dim, ~66M, хурдан/хөнгөн)
+- **RoBERTa-base** (768 dim, ~125M, сайжруулсан сургалт)
+- **ALBERT-base-v2** (768 dim, ~12M, маш бага параметр)
 
-## 🚀 Ашиглах заавар
-```bash
-pip install -r requirements.txt
-# Embedding файлуудыг embeddings/ дотор байрлуулна
-# нэршил: {model_name}_train_embeddings.npy, {model_name}_train_labels.npy, {model_name}_test_embeddings.npy, {model_name}_test_labels.npy
-python main.py# biy_daalt
+## 4. Ангилагчид (математик товч)
+- **Logistic Regression**: σ(wᵀx + b), BCE loss; шугаман хил, хурдан
+- **AdaBoost (SAMME)**: жинтэй сул суралцагч, α = 0.5 ln((1-ε)/ε); noise-д мэдрэмтгий
+- **Random Forest**: bagging + random subspace, majority vote; тогтвортой, тайлбар багатай
+- **LSTM (Keras)**: embedding вектор → (batch, 1, dim) sequence, урт хамаарал барина, удаан
+
+## 5. Үнэлгээний тохиргоо
+- **Cross-validation**: RepeatedStratifiedKFold (5 folds × 4 repeats) ⇒ 20 run
+- **Metrics**: Accuracy, Precision, Recall, F1, ROC-AUC
+- **Дүн**: дундаж ± std (20 run)
+
+## 6. Туршилтын орчин
+- Embedding: Colab/Kaggle GPU (T4/P100), CLS pooling, batch 64, max_length 256
+- Classification: локал (M2/MPS GPU; TensorFlow MPS идэвхтэй)
+
+## 7. Үр дүн (20-run CV, таны хэмжилтүүд)
+
+**Бүх хослол (F1-ээр эрэмбэлсэн):**
+| Embedding                 | Classifier           | Accuracy       | Precision      | Recall         | F1             | AUC            |
+|---------------------------|----------------------|----------------|----------------|----------------|----------------|----------------|
+| roberta_base              | Logistic Regression  | 0.8939±0.0005  | 0.8937±0.0036  | 0.8942±0.0033  | 0.8939±0.0001  | 0.9594±0.0001  |
+| roberta_base              | LSTM                 | 0.8842±0.0001  | 0.8802±0.0003  | 0.8896±0.0003  | 0.8848±0.0000  | 0.9540±0.0003  |
+| albert_base_v2            | Logistic Regression  | 0.8728±0.0002  | 0.8728±0.0036  | 0.8729±0.0053  | 0.8728±0.0009  | 0.9452±0.0002  |
+| distilbert_base_uncased   | Logistic Regression  | 0.8565±0.0010  | 0.8591±0.0019  | 0.8528±0.0050  | 0.8559±0.0016  | 0.9314±0.0003  |
+| albert_base_v2            | LSTM                 | 0.8545±0.0022  | 0.8572±0.0083  | 0.8510±0.0169  | 0.8539±0.0044  | 0.9324±0.0017  |
+| roberta_base              | Random Forest        | 0.8501±0.0019  | 0.8399±0.0020  | 0.8653±0.0016  | 0.8524±0.0018  | 0.9246±0.0000  |
+| distilbert_base_uncased   | LSTM                 | 0.8488±0.0017  | 0.8488±0.0038  | 0.8489±0.0013  | 0.8488±0.0013  | 0.9273±0.0011  |
+| bert_base_uncased         | Logistic Regression  | 0.8485±0.0004  | 0.8523±0.0033  | 0.8433±0.0036  | 0.8477±0.0002  | 0.9255±0.0001  |
+| bert_large_uncased        | Logistic Regression  | 0.8439±0.0008  | 0.8454±0.0011  | 0.8417±0.0035  | 0.8435±0.0012  | 0.9198±0.0001  |
+| bert_base_uncased         | LSTM                 | 0.8368±0.0022  | 0.8316±0.0032  | 0.8448±0.0007  | 0.8381±0.0020  | 0.9189±0.0023  |
+| bert_large_uncased        | LSTM                 | 0.8320±0.0013  | 0.8350±0.0106  | 0.8280±0.0124  | 0.8313±0.0010  | 0.9137±0.0002  |
+| albert_base_v2            | Random Forest        | 0.8199±0.0001  | 0.8181±0.0031  | 0.8228±0.0051  | 0.8204±0.0010  | 0.9021±0.0010  |
+| distilbert_base_uncased   | Random Forest        | 0.8194±0.0001  | 0.8173±0.0011  | 0.8227±0.0015  | 0.8199±0.0002  | 0.9020±0.0008  |
+| bert_base_uncased         | Random Forest        | 0.8056±0.0014  | 0.8068±0.0023  | 0.8039±0.0074  | 0.8053±0.0026  | 0.8881±0.0012  |
+| bert_large_uncased        | Random Forest        | 0.8044±0.0001  | 0.8109±0.0035  | 0.7942±0.0050  | 0.8024±0.0009  | 0.8836±0.0020  |
+| roberta_base              | AdaBoost             | 0.7992±0.0014  | 0.8369±0.0013  | 0.7432±0.0053  | 0.7873±0.0024  | 0.8888±0.0005  |
+| distilbert_base_uncased   | AdaBoost             | 0.7863±0.0002  | 0.8166±0.0004  | 0.7386±0.0010  | 0.7756±0.0004  | 0.8735±0.0001  |
+| albert_base_v2            | AdaBoost             | 0.7738±0.0005  | 0.8142±0.0054  | 0.7097±0.0088  | 0.7583±0.0027  | 0.8639±0.0002  |
+| bert_large_uncased        | AdaBoost             | 0.7691±0.0023  | 0.7966±0.0031  | 0.7228±0.0015  | 0.7579±0.0022  | 0.8511±0.0020  |
+| bert_base_uncased         | AdaBoost             | 0.7727±0.0021  | 0.8149±0.0089  | 0.7059±0.0067  | 0.7564±0.0000  | 0.8579±0.0012  |
+
+**F1-Score TOP 3 хослол:**
+1) RoBERTa-base + Logistic Regression — F1=0.8939, AUC=0.9594  
+2) RoBERTa-base + LSTM — F1=0.8848, AUC=0.9540  
+3) ALBERT-base + Logistic Regression — F1=0.8728, AUC=0.9452  
+
+**Classifier дундаж (F1):**
+- Logistic Regression ≈ 0.87–0.89 (хамгийн тогтвортой, хурдан)
+- LSTM ≈ 0.83–0.88 (RoBERTa дээр өндөр, удаан)
+- Random Forest ≈ 0.80–0.85 (тогтвортой, хурд/санах ой дунд)
+- AdaBoost ≈ 0.75–0.79 (noise-д мэдрэмтгий, F1 доогуур)
+
+**Embedding дундаж (F1, ерөнхий чиглэл):**
+- RoBERTa > ALBERT ≳ DistilBERT > BERT-base ≳ BERT-large
+
+## 8. Дүгнэлт
+- **Шилдэг хослол**: RoBERTa-base + Logistic Regression (F1 ~0.894, AUC ~0.959), хурд/нарийвчлалын баланс сайн.
+- **Хамгийн хөнгөн**: ALBERT-base + Logistic Regression — параметр бага, F1 ~0.873, AUC ~0.945.
+- **Хурдан embedding**: DistilBERT, гүйцэтгэл RoBERTa/ALBERT-аас арай доогуур ч практикт тохиромжтой.
+- **LSTM**: RoBERTa/ALBERT дээр өндөр F1 гаргасан ч сургалт удаан; GPU нөөц, цаг байвал ашиглах.
+- **AdaBoost**: Бүх embedding дээр харьцангуй доогуур F1; imbalance эсвэл noise-д мэдрэмтгий.
+
+### Зөвлөмж
+- Нөөц хязгаарлагдмал бол: **ALBERT-base + Logistic Regression**  
+- Хурд+чанарын тэнцвэр хэрэгтэй бол: **RoBERTa-base + Logistic Regression**  
+- Нарийвчлал ахиу, дэвшилтэт туршилт хийх бол: **RoBERTa-base + LSTM** (epochs/units-ийг бага зэрэг багасгаж хурд нэмэх)
