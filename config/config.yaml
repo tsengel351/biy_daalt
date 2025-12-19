@@ -1,0 +1,4 @@
+evaluation:
+  n_splits: 3
+  n_repeats: 2
+  random_state: 42
